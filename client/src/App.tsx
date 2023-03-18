@@ -34,17 +34,42 @@ axiosInstance.interceptors.request.use((request: AxiosRequestConfig) => {
 
 function App() {
   const authProvider: AuthProvider = {
-    login: ({ credential }: CredentialResponse) => {
+    login: async ({ credential }: CredentialResponse) => {
       const profileObj = credential ? parseJwt(credential) : null;
 
       if (profileObj) {
-        localStorage.setItem(
-          'user',
-          JSON.stringify({
-            ...profileObj,
-            avatar: profileObj.picture,
-          })
-        );
+        try {
+          // save user to mongoDB...
+          const response = await fetch('http://localhost:8000/api/v1/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: profileObj.name,
+              email: profileObj.email,
+              avatar: profileObj.picture,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.status !== 200) {
+            throw new Error('something went wrong');
+          }
+          // persist the data into localStorage...
+          localStorage.setItem(
+            'user',
+            JSON.stringify({
+              ...profileObj,
+              avatar: profileObj.picture,
+              userId: data._id,
+            })
+          );
+        } catch (err) {
+          if (err instanceof Error) {
+            alert(err.message);
+            return Promise.reject();
+          }
+        }
       }
 
       localStorage.setItem('token', `${credential}`);
